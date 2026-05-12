@@ -163,11 +163,40 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+
+    .post-card-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.5rem;
+      padding-top: 0.2rem;
+    }
+
     .post-date {
       font-size: 0.73rem;
       color: var(--ink-light);
       white-space: nowrap;
-      padding-top: 0.2rem;
+    }
+
+    /* share button on card */
+    .share-btn-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      color: var(--ink-light);
+      border: 1px solid var(--rule);
+      border-radius: 20px;
+      padding: 3px 9px;
+      background: transparent;
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .share-btn-card:hover {
+      color: var(--accent);
+      border-color: var(--accent);
     }
 
     .no-results {
@@ -187,6 +216,13 @@
       padding: 1.5rem 1.25rem 5rem;
     }
 
+    .post-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+
     .back-btn {
       display: inline-flex;
       align-items: center;
@@ -198,10 +234,56 @@
       background: none;
       font-family: var(--sans);
       padding: 0;
-      margin-bottom: 2rem;
       transition: color 0.2s;
     }
     .back-btn:hover { color: var(--accent); }
+
+    /* share button on post */
+    .share-btn-post {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--ink-mid);
+      border: 1px solid var(--rule);
+      border-radius: 20px;
+      padding: 5px 14px;
+      background: transparent;
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: all 0.2s;
+    }
+    .share-btn-post:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .share-btn-post.copied {
+      color: #3a7d44;
+      border-color: #3a7d44;
+    }
+
+    /* toast */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--ink);
+      color: var(--paper);
+      font-size: 0.8rem;
+      font-family: var(--sans);
+      padding: 8px 18px;
+      border-radius: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
 
     /* Markdown styles */
     #post-body { line-height: 1.85; color: var(--ink); }
@@ -267,7 +349,7 @@
 
     @media (max-width: 480px) {
       .post-card { grid-template-columns: 1fr; }
-      .post-date { padding-top: 0; }
+      .post-card-right { flex-direction: row; align-items: center; }
       .header-inner { height: auto; padding: 0.6rem 0; flex-wrap: wrap; }
       .search-wrap { max-width: 100%; order: 3; flex-basis: 100%; margin-bottom: 0.4rem; }
     }
@@ -301,36 +383,88 @@
     </div>
   </div>
 
-  <!-- POST VIEW — back button + raw markdown content only -->
+  <!-- POST VIEW -->
   <div id="post-view">
-    <button class="back-btn" onclick="showList()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-      All posts
-    </button>
+    <div class="post-nav">
+      <button class="back-btn" onclick="showList()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        All posts
+      </button>
+      <button class="share-btn-post" id="share-btn" onclick="shareCurrentPost()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share
+      </button>
+    </div>
     <div id="post-body"></div>
   </div>
 
+  <div id="toast">Link copied!</div>
+
   <footer>
-    <p>&copy; <span id="yr"></span> , by <i>Rupesh</i></p>
+    <p style="font-family: cursive;">Written by, <i>Rupesh</i></p>
   </footer>
 
   <script>
-    document.getElementById('yr').textContent = new Date().getFullYear();
 
     let allPosts = [];
+    let currentPost = null;
 
+    /* ── derive a stable ID from the filename ── */
+    function fileToId(file) {
+      return encodeURIComponent(file);
+    }
+    function idToFile(id) {
+      return decodeURIComponent(id);
+    }
+
+    /* ── URL helpers ── */
+    function getPostIdFromUrl() {
+      return new URLSearchParams(window.location.search).get('post');
+    }
+    function pushPostUrl(post) {
+      const id = fileToId(post.file);
+      const url = '?post=' + id;
+      history.pushState({ postId: id }, post.title || 'Post', url);
+    }
+    function pushListUrl() {
+      history.pushState({}, 'FeelingAlive', window.location.pathname);
+    }
+
+    /* ── init ── */
     async function init() {
       try {
         const res = await fetch('blogs.json');
         const data = await res.json();
         allPosts = data.posts || data;
         renderList(allPosts);
+
+        /* deep-link support: load post if ?post= is in URL */
+        const id = getPostIdFromUrl();
+        if (id) {
+          const file = idToFile(id);
+          const post = allPosts.find(p => p.file === file);
+          if (post) {
+            openPost(post, false); /* false = don't push history again */
+          }
+        }
       } catch (e) {
         document.getElementById('post-grid').innerHTML =
           '<p class="loading">Could not load posts. Make sure blogs.json is present.</p>';
       }
     }
 
+    /* ── handle browser back/forward ── */
+    window.addEventListener('popstate', (e) => {
+      const id = getPostIdFromUrl();
+      if (id) {
+        const file = idToFile(id);
+        const post = allPosts.find(p => p.file === file);
+        if (post) { openPost(post, false); return; }
+      }
+      showList(false);
+    });
+
+    /* ── render list ── */
     function renderList(posts) {
       const grid = document.getElementById('post-grid');
       const meta = document.getElementById('posts-meta');
@@ -346,14 +480,14 @@
       meta.textContent = posts.length === 1 ? '1 post' : `${posts.length} posts`;
 
       grid.innerHTML = posts.map(post => `
-        <a class="post-card" onclick="openPost(${JSON.stringify(post).replace(/"/g, '&quot;')})" role="article" href="javascript:void(0)">
+        <div class="post-card" onclick="openPost(${JSON.stringify(post).replace(/"/g, '&quot;')})" role="article" tabindex="0" onkeydown="if(event.key==='Enter')openPost(${JSON.stringify(post).replace(/"/g, '&quot;')})">
           <div>
             ${post.tag ? `<span class="post-tag">${escHtml(post.tag)}</span>` : ''}
             <p class="post-title">${escHtml(post.title)}</p>
             ${post.excerpt ? `<p class="post-excerpt">${escHtml(post.excerpt)}</p>` : ''}
           </div>
-          <span class="post-date">${post.date ? formatDate(post.date) : ''}</span>
-        </a>
+
+        </div>
       `).join('');
     }
 
@@ -368,14 +502,23 @@
       renderList(filtered);
     }
 
-    async function openPost(post) {
+    /* ── open post ── */
+    async function openPost(post, pushHistory = true) {
+      currentPost = post;
       document.getElementById('list-view').style.display = 'none';
       const pv = document.getElementById('post-view');
       pv.style.display = 'block';
       window.scrollTo(0, 0);
 
+      /* reset share button */
+      const btn = document.getElementById('share-btn');
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share`;
+
       document.getElementById('post-body').innerHTML = '<div class="loading">Loading…</div>';
       document.title = (post.title || 'Post') + ' — FeelingAlive';
+
+      if (pushHistory) pushPostUrl(post);
 
       try {
         const res = await fetch(post.file);
@@ -388,13 +531,78 @@
       }
     }
 
-    function showList() {
+    /* ── show list ── */
+    function showList(pushHistory = true) {
+      currentPost = null;
       document.getElementById('post-view').style.display = 'none';
       document.getElementById('list-view').style.display = 'block';
       document.title = 'FeelingAlive';
       window.scrollTo(0, 0);
+      if (pushHistory) pushListUrl();
     }
 
+    /* ── build shareable URL for a post ── */
+    function buildPostUrl(post) {
+      const base = window.location.origin + window.location.pathname;
+      return base + '?post=' + fileToId(post.file);
+    }
+
+    /* ── share from post view ── */
+    function shareCurrentPost() {
+      if (!currentPost) return;
+      const url = buildPostUrl(currentPost);
+
+      if (navigator.share) {
+        navigator.share({ title: currentPost.title || 'FeelingAlive', url }).catch(() => {});
+        return;
+      }
+
+      copyToClipboard(url, () => {
+        const btn = document.getElementById('share-btn');
+        btn.classList.add('copied');
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share`;
+        }, 2500);
+      });
+    }
+
+    /* ── share from list card ── */
+    function copyPostLink(post) {
+      const url = buildPostUrl(post);
+      copyToClipboard(url, () => showToast('Link copied!'));
+    }
+
+    /* ── clipboard helper ── */
+    function copyToClipboard(text, onSuccess) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(() => fallbackCopy(text, onSuccess));
+      } else {
+        fallbackCopy(text, onSuccess);
+      }
+    }
+    function fallbackCopy(text, onSuccess) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); onSuccess(); } catch {}
+      document.body.removeChild(ta);
+    }
+
+    /* ── toast ── */
+    let toastTimer;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    /* ── utils ── */
     function formatDate(str) {
       try {
         return new Date(str).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
