@@ -1,6 +1,13 @@
 {
   "posts": [
     {
+      "title": "God Doesn't Need Your Worship",
+      "file": "blogs/God Doesn't Need Your Worship.md",
+      "date": "2026-05-30",
+      "tag": "FAITH",
+      "excerpt": "God doesn't need your worship. The real question is what you're becoming through what you worship."
+    },
+    {
       "title": "Little moments",
       "file": "blogs/Little moments.md",
       "date": "2026-05-14",
@@ -13,17 +20,6 @@
       "date": "2026-05-12",
       "tag": "beginning",
       "excerpt": "Every journal needs a first entry, so here's mine. Consider this the door swinging open."
-    },
-
-    {
-
-  "title": "God Doesn't Need Your Worship",
-  "date": "2026-05-30"
-  "tag": "FAITH",
-  "excerpt": "God doesn't need your worship. The real question is what you're becoming through what you worship.",
-  "file": "blogs/God Doesn't Need Your Worship.md"
-
-
     }
     
   ]
